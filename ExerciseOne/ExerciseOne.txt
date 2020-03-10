@@ -1,0 +1,94 @@
+ExerciseOne
+========================
+Student Name: Peisong Yang
+Student ID: 19031379
+
+Database: SP500SQL
+========================
+
+-- 1. a quick look at records from income table after the year 2018
+
+SELECT * FROM equity_income WHERE start_date > '2018-01-01' AND start_date != 'NA';
+
+-- 2.1 how many stocks in each sector
+
+SELECT GICSSector, count(symbol) AS NumOfFirms
+FROM equity_static
+GROUP BY GICSSector
+ORDER BY NumOfFirms DESC;
+
+-- 2.2 display each sectors
+
+SELECT DISTINCT GICSSector FROM equity_static
+
+-- 3. what is the average EPS (basic) of firms in 'Industrials' sector throughout the whole period
+
+SELECT equity_income.symbol_id, equity_static.security, avg(equity_income.amount) as Avg_EPS_Basic
+FROM equity_income
+LEFT JOIN equity_static on equity_income.symbol_id = equity_static.symbol
+WHERE GICSSector = 'Industrials' AND metric = 'EarningsPerShareBasic'
+GROUP BY symbol_id;
+
+-- 4. look at some companies' overall performance on gross profit in Industrial sector yearly
+
+SELECT equity_income.symbol_id, equity_static.security, equity_income.amount as GrossProfit, equity_income.units, equity_income.start_date, equity_income.end_date
+FROM equity_income
+LEFT JOIN equity_static on equity_income.symbol_id = equity_static.symbol
+WHERE GICSSector = 'Industrials' AND metric = 'GrossProfit' AND start_date like '_____01-01' AND end_date like '_____12-31';
+
+-- 5. make the table flat (so sad I didn't find pivot in sqlite)
+
+SELECT c.symbol_id, c.security,
+sum(CASE c.start_date when '2015-01-01' then c.GrossProfit ELSE 0 END) '2015',
+sum(CASE c.start_date when '2016-01-01' then c.GrossProfit ELSE 0 END) '2016',
+sum(CASE c.start_date when '2017-01-01' then c.GrossProfit ELSE 0 END) '2017'
+FROM
+(
+SELECT equity_income.symbol_id, equity_static.security, equity_income.amount as GrossProfit, equity_income.units, equity_income.start_date, equity_income.end_date
+FROM equity_income
+LEFT JOIN equity_static on equity_income.symbol_id = equity_static.symbol
+WHERE GICSSector = 'Industrials' AND metric = 'GrossProfit' AND start_date like '_____01-01' AND end_date like '_____12-31'
+) as c
+GROUP BY c.symbol_id;
+
+-- 6. compare companies' revenue level in 2017, show top 30
+
+SELECT equity_income.symbol_id, equity_static.security, equity_income.amount as Revenues, equity_income.units, equity_static.GICSSector, equity_income.start_date, equity_income.end_date
+FROM equity_income
+LEFT JOIN equity_static on equity_income.symbol_id = equity_static.symbol
+WHERE metric = 'Revenues' AND start_date = '2017-01-01' AND end_date = '2017-12-31'
+ORDER BY Revenues DESC
+LIMIT 30;
+
+-- 7. then, pick up companies which have the largest revenue in each sector, filter the revenue by 10000000000
+
+SELECT equity_income.symbol_id, equity_static.security, max(equity_income.amount) as Revenues, equity_income.units, equity_static.GICSSector, equity_income.start_date, equity_income.end_date
+FROM equity_income
+LEFT JOIN equity_static on equity_income.symbol_id = equity_static.symbol
+WHERE metric = 'Revenues' AND start_date = '2017-01-01' AND end_date = '2017-12-31'
+GROUP BY GICSSector
+HAVING Revenues > 10000000000
+ORDER BY Revenues DESC
+
+-- 8. then using companies picked up, look at data related to income
+
+SELECT c.symbol_id,c.Revenues, c.security,equity_income.metric, equity_income.amount, c.GICSSector FROM
+(
+SELECT equity_income.symbol_id, equity_static.security, max(equity_income.amount) as Revenues, equity_income.units, equity_static.GICSSector, equity_income.start_date, equity_income.end_date
+FROM equity_income
+LEFT JOIN equity_static on equity_income.symbol_id = equity_static.symbol
+WHERE metric = 'Revenues' AND start_date = '2017-01-01' AND end_date = '2017-12-31'
+GROUP BY GICSSector
+HAVING Revenues > 10000000000
+ORDER BY Revenues DESC
+) as c
+LEFT JOIN equity_income on equity_income.symbol_id = c.symbol_id
+WHERE equity_income.metric like 'Income%' AND equity_income.start_date = '2017-01-01' AND equity_income.end_date = '2017-12-31';
+
+
+
+
+
+
+
+
